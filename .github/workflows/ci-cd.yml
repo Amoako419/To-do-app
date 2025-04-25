@@ -1,0 +1,62 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run tests
+      run: |
+        python -m pytest
+        
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+        
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      
+    - name: Terraform Init
+      run: |
+        cd terraform
+        terraform init
+        
+    - name: Terraform Plan
+      run: |
+        cd terraform
+        terraform plan -var="aws_region=${{ secrets.AWS_REGION }}" -var="key_name=${{ secrets.AWS_KEY_NAME }}"
+        
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: |
+        cd terraform
+        terraform apply -auto-approve -var="aws_region=${{ secrets.AWS_REGION }}" -var="key_name=${{ secrets.AWS_KEY_NAME }}"
