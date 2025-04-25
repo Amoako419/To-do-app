@@ -99,37 +99,39 @@ resource "aws_instance" "todo_app" {
 
   user_data = <<-EOF
               #!/bin/bash
-              sudo apt-get update
-              sudo apt-get install -y python3-pip nginx git
-              sudo systemctl start nginx
-              sudo systemctl enable nginx
+              exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
-              # Clone the application
-              git clone https://github.com/Amoako419/To-do-app.git /home/ubuntu/todo-app
+              # Update system and install dependencies
+              apt-get update
+              DEBIAN_FRONTEND=noninteractive apt-get install -y python3-pip nginx git
 
-              # Install dependencies
-              cd /home/ubuntu/todo-app
+              # Create application directory
+              mkdir -p /opt/todo-app
+              cd /opt/todo-app
+
+              # Clone the application with proper permissions
+              git clone https://github.com/Amoako419/To-do-app.git .
+              chown -R ubuntu:ubuntu /opt/todo-app
+
+              # Install Python dependencies
               pip3 install -r requirements.txt
 
-              # Setup systemd service
+              # Create Flask service file
               cat << 'EOT' > /etc/systemd/system/todo-app.service
               [Unit]
-              Description=Todo App
+              Description=Todo App Flask Service
               After=network.target
 
               [Service]
               User=ubuntu
-              WorkingDirectory=/home/ubuntu/todo-app
-              ExecStart=/usr/bin/python3 app/app.py
+              WorkingDirectory=/opt/todo-app
+              Environment="PATH=/usr/local/bin"
+              ExecStart=/usr/local/bin/python3 app/app.py
               Restart=always
 
               [Install]
               WantedBy=multi-user.target
               EOT
-
-              # Start the service
-              sudo systemctl start todo-app
-              sudo systemctl enable todo-app
 
               # Configure Nginx
               cat << 'EOT' > /etc/nginx/sites-available/todo-app
@@ -141,13 +143,31 @@ resource "aws_instance" "todo_app" {
                       proxy_pass http://127.0.0.1:5000;
                       proxy_set_header Host $host;
                       proxy_set_header X-Real-IP $remote_addr;
+                      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                      proxy_set_header X-Forwarded-Proto $scheme;
                   }
               }
               EOT
 
-              sudo ln -s /etc/nginx/sites-available/todo-app /etc/nginx/sites-enabled/
-              sudo rm /etc/nginx/sites-enabled/default
-              sudo systemctl restart nginx
+              # Enable and configure services
+              ln -sf /etc/nginx/sites-available/todo-app /etc/nginx/sites-enabled/
+              rm -f /etc/nginx/sites-enabled/default
+              
+              # Reload systemd and start services
+              systemctl daemon-reload
+              systemctl enable todo-app
+              systemctl start todo-app
+              systemctl restart nginx
+
+              # Set correct permissions for application files
+              chown -R ubuntu:ubuntu /opt/todo-app
+              chmod -R 755 /opt/todo-app
+
+              # Create log file and set permissions
+              touch /var/log/todo-app.log
+              chown ubuntu:ubuntu /var/log/todo-app.log
+
+              echo "User data script completed"
               EOF
 
   tags = {
