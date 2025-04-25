@@ -2,16 +2,9 @@ provider "aws" {
   region = var.aws_region
 }
 
-# DynamoDB table for state locking
-resource "aws_dynamodb_table" "terraform_state_lock" {
-  name           = "terraform-state-lock"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
+# Use existing DynamoDB table
+data "aws_dynamodb_table" "terraform_state_lock" {
+  name = "terraform-state-lock"
 }
 
 # Data source for existing S3 bucket
@@ -84,13 +77,6 @@ resource "aws_security_group" "todo_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -108,7 +94,6 @@ resource "aws_instance" "todo_app" {
   ami           = var.ami_id
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.public_subnet.id
-  key_name      = var.key_name
 
   vpc_security_group_ids = [aws_security_group.todo_sg.id]
 
