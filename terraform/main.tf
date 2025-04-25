@@ -2,6 +2,23 @@ provider "aws" {
   region = var.aws_region
 }
 
+# DynamoDB table for state locking
+resource "aws_dynamodb_table" "terraform_state_lock" {
+  name           = "terraform-state-lock"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "LockID"
+
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
+}
+
+# Data source for existing S3 bucket
+data "aws_s3_bucket" "terraform_state" {
+  bucket = "todo-app-terraform-state"
+}
+
 # VPC Configuration
 resource "aws_vpc" "todo_vpc" {
   cidr_block           = "10.0.0.0/16"
@@ -98,12 +115,12 @@ resource "aws_instance" "todo_app" {
   user_data = <<-EOF
               #!/bin/bash
               sudo apt-get update
-              sudo apt-get install -y python3-pip nginx
+              sudo apt-get install -y python3-pip nginx git
               sudo systemctl start nginx
               sudo systemctl enable nginx
 
               # Clone the application
-              git clone https://github.com/Amoako419/To-do-app.git /home/ubuntu/todo-app
+              git clone https://github.com/yourusername/todo-app.git /home/ubuntu/todo-app
 
               # Install dependencies
               cd /home/ubuntu/todo-app
