@@ -103,7 +103,7 @@ resource "aws_instance" "todo_app" {
               sudo systemctl enable nginx
 
               # Clone the application
-              git clone https://github.com/yourusername/todo-app.git /home/ubuntu/todo-app
+              git clone https://github.com/Amoako419/To-do-app.git /home/ubuntu/todo-app
 
               # Install dependencies
               cd /home/ubuntu/todo-app
