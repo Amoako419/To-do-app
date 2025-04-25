@@ -60,7 +60,7 @@ python -m pytest
 ### Prerequisites
 
 1. AWS Account with appropriate permissions
-2. AWS CLI configured
+2. AWS CLI configured with eu-west-1 region
 3. Terraform installed
 4. GitHub repository set up
 
