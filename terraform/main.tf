@@ -97,39 +97,26 @@ resource "aws_instance" "todo_app" {
 
   vpc_security_group_ids = [aws_security_group.todo_sg.id]
 
-  user_data = <<-'EOF'
+  user_data = <<EOF
 #!/bin/bash
-set -e
-
-# Redirect output to log file
 exec > >(tee /var/log/user-data.log) 2>&1
 
-echo "[$(date)] Starting user data script execution"
-
 # Update system and install dependencies
-echo "[$(date)] Updating system packages"
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    python3-pip \
-    nginx \
-    git
+DEBIAN_FRONTEND=noninteractive apt-get install -y python3-pip nginx git
 
 # Create application directory
-echo "[$(date)] Setting up application directory"
 mkdir -p /opt/todo-app
 cd /opt/todo-app
 
 # Clone the application
-echo "[$(date)] Cloning application repository"
 git clone https://github.com/Amoako419/To-do-app.git .
 
 # Install Python dependencies
-echo "[$(date)] Installing Python dependencies"
 python3 -m pip install -r requirements.txt
 
 # Create Flask service file
-echo "[$(date)] Creating systemd service"
-cat > /etc/systemd/system/todo-app.service << 'EOService'
+cat > /etc/systemd/system/todo-app.service << "EOL"
 [Unit]
 Description=Todo App Flask Service
 After=network.target
@@ -146,11 +133,10 @@ RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
-EOService
+EOL
 
 # Configure Nginx
-echo "[$(date)] Configuring Nginx"
-cat > /etc/nginx/sites-available/todo-app << 'EONginx'
+cat > /etc/nginx/sites-available/todo-app << "EOL"
 server {
     listen 80;
     server_name _;
@@ -160,21 +146,19 @@ server {
 
     location / {
         proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
-EONginx
+EOL
 
 # Enable and configure services
-echo "[$(date)] Enabling services"
 ln -sf /etc/nginx/sites-available/todo-app /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
 
 # Set permissions
-echo "[$(date)] Setting file permissions"
 chown -R ubuntu:ubuntu /opt/todo-app
 chmod -R 755 /opt/todo-app
 
@@ -183,13 +167,10 @@ touch /var/log/todo-app.log
 chown ubuntu:ubuntu /var/log/todo-app.log
 
 # Start services
-echo "[$(date)] Starting services"
 systemctl daemon-reload
 systemctl enable todo-app
 systemctl start todo-app
 systemctl restart nginx
-
-echo "[$(date)] User data script completed successfully"
 EOF
 
   tags = {
